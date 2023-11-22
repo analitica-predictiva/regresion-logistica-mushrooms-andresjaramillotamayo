@@ -63,21 +63,21 @@ def pregunta_01():
     """
     En esta función se realiza la carga de datos.
     """
-    # Lea el archivo `mushrooms.csv` y asignelo al DataFrame `df`
-    df = ____
+    # Lea el archivo `mushrooms.csv` y asígnelo al DataFrame `df`
+    df = pd.read_csv("mushrooms.csv")
 
     # Remueva la columna `veil-type` del DataFrame `df`.
     # Esta columna tiene un valor constante y no sirve para la detección de hongos.
-    ____.____(____)
+    df = df.drop(columns=["veil_type"])
 
     # Asigne la columna `type` a la variable `y`.
-    ____ = ____
+    y = df['type']
 
     # Asigne una copia del dataframe `df` a la variable `X`.
-    ____ = ____.____(____)
+    X = df.copy()
 
     # Remueva la columna `type` del DataFrame `X`.
-    ____.____(____)
+    X = X.drop(columns=['type'])
 
     # Retorne `X` y `y`
     return X, y
@@ -89,18 +89,18 @@ def pregunta_02():
     """
 
     # Importe train_test_split
-    from ____ import ____
+    from sklearn.model_selection import train_test_split
 
     # Cargue los datos de ejemplo y asigne los resultados a `X` y `y`.
     X, y = pregunta_01()
 
     # Divida los datos de entrenamiento y prueba. La semilla del generador de números
     # aleatorios es 123. Use 50 patrones para la muestra de prueba.
-    (X_train, X_test, y_train, y_test,) = ____(
-        ____,
-        ____,
-        test_size=____,
-        random_state=____,
+    (X_train, X_test, y_train, y_test) = train_test_split(
+        X,
+        y,
+        test_size=50,  # Cambia el valor según tus necesidades, aquí se usa el 20% como conjunto de prueba
+        random_state=123,
     )
 
     # Retorne `X_train`, `X_test`, `y_train` y `y_test`
@@ -120,9 +120,13 @@ def pregunta_03():
     """
 
     # Importe LogisticRegressionCV
+    from sklearn.linear_model import LogisticRegressionCV
     # Importe OneHotEncoder
+    from sklearn.preprocessing import OneHotEncoder
     # Importe Pipeline
-    from ____ import ____
+    from sklearn.pipeline import Pipeline
+    # Importe ColumnTransformer
+    from sklearn.compose import ColumnTransformer
 
     # Cargue las variables.
     X_train, _, y_train, _ = pregunta_02()
@@ -131,13 +135,35 @@ def pregunta_03():
     # LogisticRegression con una regularización Cs=10
     pipeline = Pipeline(
         steps=[
-            ("____", ____()),
-            ("____", ____(____)),
+            # Paso 1: Construya un column_transformer que aplica OneHotEncoder a las
+            # variables categóricas, y no aplica ninguna transformación al resto de
+            # las variables.
+            (
+                "preprocessor",
+                ColumnTransformer(
+                    transformers=[
+                        (
+                            "one_hot_encoder",
+                            OneHotEncoder(),
+                            # Specify the columns to apply OneHotEncoder to
+                            X_train.select_dtypes(include=['object']).columns.tolist()
+                        ),
+                        # You can add more transformers for other types of preprocessing
+                        # if needed.
+                    ],
+                    # Specify the remainder as 'passthrough' to not transform other columns.
+                    remainder='passthrough'
+                ),
+            ),
+            (
+                "logistic_regression_cv",
+                LogisticRegressionCV(Cs=10),
+            ),
         ],
     )
 
     # Entrene el pipeline con los datos de entrenamiento.
-    ____.____(____, ____)
+    pipeline.fit(X_train, y_train)
 
     # Retorne el pipeline entrenado
     return pipeline
@@ -149,7 +175,7 @@ def pregunta_04():
     """
 
     # Importe confusion_matrix
-    from ____ import ____
+    from sklearn.metrics import confusion_matrix
 
     # Obtenga el pipeline de la pregunta 3.
     pipeline = pregunta_03()
@@ -157,16 +183,16 @@ def pregunta_04():
     # Cargue las variables.
     X_train, X_test, y_train, y_test = pregunta_02()
 
-    # Evalúe el pipeline con los datos de entrenamiento usando la matriz de confusion.
-    cfm_train = ____(
-        y_true=____,
-        y_pred=____.____(____),
+    # Evalúe el pipeline con los datos de entrenamiento usando la matriz de confusión.
+    cfm_train = confusion_matrix(
+        y_true=y_train,
+        y_pred=pipeline.predict(X_train),
     )
 
-    cfm_test = ____(
-        y_true=____,
-        y_pred=____.____(____),
+    # Evalúe el pipeline con los datos de prueba usando la matriz de confusión.
+    cfm_test = confusion_matrix(
+        y_true=y_test,
+        y_pred=pipeline.predict(X_test),
     )
-
     # Retorne la matriz de confusion de entrenamiento y prueba
     return cfm_train, cfm_test
